@@ -18,7 +18,7 @@
 <section id="results" class="hidden" aria-label="Trademark results">
 <div id="resultHead"><h2 id="resultTitle"></h2><a id="officialLink" target="_blank" rel="noopener noreferrer">Open official TSDR ↗</a></div><p id="retrieved" class="small"></p>
 <article class="card"><h2>Status &amp; case details</h2><div id="statusState"></div><div id="statusData"></div><div class="actions"><button type="button" data-download="status-pdf">Download status PDF</button><button type="button" id="saveStatus" class="secondary" disabled>Save returned status</button></div><details class="raw"><summary>Original API response</summary><pre id="statusRaw"></pre></details></article>
-<article class="card"><h2>Documents</h2><p class="small">Document metadata is loaded separately. Expand the sections below to inspect all entries returned by USPTO. PDF and ZIP downloads are requested only when you click.</p><div id="docsState"></div><div class="actions"><button type="button" data-download="documents-pdf">All documents · PDF</button><button type="button" data-download="documents-zip" class="secondary">All documents · ZIP</button><button type="button" id="saveDocs" class="secondary" disabled>Save metadata</button></div><div id="docsData"></div><details class="raw"><summary>Original document metadata</summary><pre id="docsRaw"></pre></details></article>
+<article class="card"><h2>Documents</h2><p class="small">Load document metadata when you need it, then expand the sections below to inspect the entries returned by USPTO. PDF and ZIP downloads are requested only when you click.</p><div id="docsState"></div><div class="actions"><button type="button" id="loadDocs" class="secondary" disabled>Load document metadata</button></div><div class="actions"><button type="button" data-download="documents-pdf">All documents · PDF</button><button type="button" data-download="documents-zip" class="secondary">All documents · ZIP</button><button type="button" id="saveDocs" class="secondary" disabled>Save metadata</button></div><div id="docsData"></div><details class="raw"><summary>Original document metadata</summary><pre id="docsRaw"></pre></details></article>
 </section>
 <footer>Made for Maa. Independent personal viewer · Data comes from USPTO · A successful homepage request does not establish that record or document retrieval is available.</footer>
 </main>
@@ -30,19 +30,35 @@ function message(text,error=false){$('message').textContent=text;$('message').cl
 function notice(target,text,error=false){const n=document.createElement('div');n.className='notice'+(error?' error':'');n.textContent=text;$(target).replaceChildren(n);}
 function config(){return {};}
 async function request(action,sn,cfg){
-  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),95000);
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),95000);
+  const started=performance.now();
   try{
     const url='/api/lookup?'+new URLSearchParams({sn,action});
-    const headers={};
-    const response=await fetch(url,{headers,signal:controller.signal,cache:'no-store',credentials:'include',redirect:'error',referrerPolicy:'no-referrer'});
+    const response=await fetch(url,{
+      signal:controller.signal,cache:'no-store',credentials:'include',
+      redirect:'error',referrerPolicy:'no-referrer'
+    });
+    const headersAt=performance.now();
     if(!response.ok){
-      let detail=(await response.text()).slice(0,500);
+      const detail=(await response.text()).slice(0,500);
       if(response.status===401)showLogin();
       const hints={401:'Please unlock the app again.',403:'Access denied.',404:'No matching record was found.',429:'Please wait before trying again.',500:'The service reported an error.',502:'USPTO could not complete this request.',503:'The service needs setup or is temporarily unavailable.'};
-      const retry=response.headers.get('Retry-After');throw new Error('HTTP '+response.status+'. '+(hints[response.status]||response.statusText)+(retry?' Retry-After: '+retry+'.':'')+(detail?'\n'+detail:''));
+      const retry=response.headers.get('Retry-After');
+      throw new Error('HTTP '+response.status+'. '+(hints[response.status]||response.statusText)+(retry?' Retry-After: '+retry+'.':'')+(detail?'\n'+detail:''));
     }
     if(response.status===204)throw new Error('No content was returned for this request.');
-    const blob=await response.blob();return {blob,type:response.headers.get('Content-Type')||''};
+    const blob=await response.blob();
+    const finished=performance.now();
+    return {
+      blob,type:response.headers.get('Content-Type')||'',
+      timings:{
+        headersMs:Math.round(headersAt-started),
+        bodyMs:Math.round(finished-headersAt),
+        totalMs:Math.round(finished-started),
+        serverTiming:response.headers.get('Server-Timing')||''
+      }
+    };
   }catch(e){
     if(e.name==='AbortError')throw new Error('The request timed out. Please try again later.');
     if(e instanceof TypeError)throw new Error('Could not reach the service. Check your internet connection and try again.');
@@ -65,24 +81,64 @@ function render(text,target){
     $(target).replaceChildren(xmlTree(doc.documentElement));
   }else{const pre=document.createElement('pre');try{pre.textContent=JSON.stringify(JSON.parse(text),null,2);}catch{pre.textContent=text;}$(target).replaceChildren(pre);}
 }
-function busy(value){state.busy=value;$('searchButton').disabled=value;document.querySelectorAll('[data-download]').forEach(b=>b.disabled=value);}
+function busy(value){
+  state.busy=value;
+  $('searchButton').disabled=value;
+  $('loadDocs').disabled=value||!state.serial||!state.config||Boolean(state.documents);
+  document.querySelectorAll('[data-download]').forEach(b=>b.disabled=value);
+}
 async function loadSection(action,sn,cfg){
-  const prefix=action==='status'?'status':'docs';notice(prefix+'State','Loading '+(action==='status'?'case details':'document metadata')+'…');
+  const prefix=action==='status'?'status':'docs';
+  notice(prefix+'State','Loading '+(action==='status'?'case details':'document metadata')+'…');
   try{
-    const result=await request(action,sn,cfg);const text=await result.blob.text();state[action]={text,type:result.type};$(prefix+'Raw').textContent=text;
-    render(text,prefix+'Data');notice(prefix+'State','Received from USPTO · '+new Intl.NumberFormat().format(result.blob.size)+' bytes');$(action==='status'?'saveStatus':'saveDocs').disabled=false;return true;
+    const result=await request(action,sn,cfg);
+    const renderStarted=performance.now();
+    const text=await result.blob.text();
+    state[action]={text,type:result.type};
+    $(prefix+'Raw').textContent=text;
+    render(text,prefix+'Data');
+    console.info('TSDR timing',{
+      action,bytes:result.blob.size,...result.timings,
+      decodeAndRenderMs:Math.round(performance.now()-renderStarted)
+    });
+    notice(prefix+'State','Received from USPTO · '+new Intl.NumberFormat().format(result.blob.size)+' bytes');
+    $(action==='status'?'saveStatus':'saveDocs').disabled=false;
+    return true;
   }catch(e){notice(prefix+'State',e.message,true);return false;}
 }
 $('searchForm').addEventListener('submit',async e=>{
-  e.preventDefault();if(state.busy)return;const sn=$('serial').value.trim();if(!/^\d{8}$/.test(sn)){message('Enter exactly eight digits.',true);return;}
-  let cfg;try{cfg=config();}catch(e){message(e.message,true);return;}
+  e.preventDefault();
+  if(state.busy)return;
+  const sn=$('serial').value.trim();
+  if(!/^\d{8}$/.test(sn)){message('Enter exactly eight digits.',true);return;}
+  let cfg;
+  try{cfg=config();}catch(e){message(e.message,true);return;}
   state.serial=sn;state.config=cfg;state.status=null;state.documents=null;
-  ['statusData','docsData','statusRaw','docsRaw'].forEach(id=>$(id).replaceChildren());$('saveStatus').disabled=true;$('saveDocs').disabled=true;
-  $('results').classList.remove('hidden');$('resultTitle').textContent='Application '+sn;$('officialLink').href='https://tsdr.uspto.gov/#caseNumber='+sn+'&caseSearchType=US_APPLICATION&caseType=DEFAULT&searchType=statusSearch';$('retrieved').textContent='Requested '+new Date().toLocaleString();
+  ['statusData','docsData','statusRaw','docsRaw'].forEach(id=>$(id).replaceChildren());
+  $('saveStatus').disabled=true;$('saveDocs').disabled=true;
+  $('results').classList.remove('hidden');
+  $('resultTitle').textContent='Application '+sn;
+  $('officialLink').href='https://tsdr.uspto.gov/#caseNumber='+sn+'&caseSearchType=US_APPLICATION&caseType=DEFAULT&searchType=statusSearch';
+  $('retrieved').textContent='Requested '+new Date().toLocaleString();
+  notice('docsState','Click Load document metadata when you need the document list.');
   busy(true);message('Looking up application '+sn+'…');
-  try{const statusOK=await loadSection('status',sn,cfg);const docsOK=$('loginForm').classList.contains('hidden')?await loadSection('documents',sn,cfg):false;message(statusOK&&docsOK?'Case details and document metadata loaded.':statusOK||docsOK?'Some data loaded. See the message in the affected section.':'No data loaded. Check the connection messages below.',!statusOK||!docsOK);}
-  finally{busy(false);}
+  try{
+    const statusOK=await loadSection('status',sn,cfg);
+    if($('loginForm').classList.contains('hidden')){
+      message(statusOK?'Case details loaded. Document metadata is available below.':'Case details could not be loaded. See the message below.',!statusOK);
+    }
+  }finally{busy(false);}
 });
+$('loadDocs').onclick=async()=>{
+  if(state.busy||!state.serial||!state.config||state.documents)return;
+  busy(true);message('Loading document metadata…');
+  try{
+    const ok=await loadSection('documents',state.serial,state.config);
+    if($('loginForm').classList.contains('hidden')){
+      message(ok?'Document metadata loaded.':'Document metadata could not be loaded. See the message below.',!ok);
+    }
+  }finally{busy(false);}
+};
 function save(blob,filename){const url=URL.createObjectURL(blob);state.urls.add(url);const a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>{URL.revokeObjectURL(url);state.urls.delete(url);},60000);}
 for(const [button,action] of [['saveStatus','status'],['saveDocs','documents']])$(button).onclick=()=>{const r=state[action];if(r)save(new Blob([r.text],{type:r.type||'text/plain'}),state.serial+'-'+action+(r.text.trim().startsWith('<')?'.xml':'.txt'));};
 document.querySelectorAll('[data-download]').forEach(button=>button.onclick=async()=>{
@@ -114,7 +170,29 @@ $('logout').onclick=async()=>{
     state.config=null;state.status=null;state.documents=null;['statusData','docsData','statusRaw','docsRaw'].forEach(id=>$(id).replaceChildren());for(const u of state.urls)URL.revokeObjectURL(u);state.urls.clear();showLogin();$('loginMessage').textContent='App locked.';
   }catch(e){message(e.message,true);}
 };
-(async()=>{try{const r=await fetch('/api/session',{credentials:'same-origin',cache:'no-store'});if(r.ok)showApp();else{showLogin();if(r.status!==401)$('loginMessage').textContent=await r.text();}}catch{showLogin();$('loginMessage').textContent='Could not connect. Open the deployed website and check your connection.';}})();
+(async()=>{
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),12000);
+  message('Opening app…');
+  try{
+    const r=await fetch('/api/session',{
+      credentials:'same-origin',cache:'no-store',signal:controller.signal
+    });
+    if(r.ok)showApp();
+    else{
+      showLogin();
+      if(r.status!==401)$('loginMessage').textContent=await r.text();
+    }
+  }catch(e){
+    showLogin();
+    $('loginMessage').textContent=e.name==='AbortError'
+      ?'The session check took too long. Check your connection, then try unlocking the app.'
+      :'Could not check your session. Check your connection, then try unlocking the app.';
+  }finally{
+    clearTimeout(timer);
+    $('message').classList.add('hidden');
+  }
+})();
 window.addEventListener('pagehide',()=>{state.config=null;for(const url of state.urls)URL.revokeObjectURL(url);state.urls.clear();});
 </script>
 </body></html>

@@ -111,6 +111,7 @@ function reply(text, status = 200, extraHeaders = {}) {
 
 export default {
   async fetch(request, env) {
+    const workerStarted = Date.now();
     const url = new URL(request.url);
 
     // Serve the frontend through the ASSETS binding.
@@ -317,6 +318,7 @@ export default {
     }
 
     try {
+      const upstreamStarted = Date.now();
       const upstream = await fetch(
         'https://tsdrapi.uspto.gov' + routes[action],
         {
@@ -330,6 +332,8 @@ export default {
           signal: AbortSignal.timeout(90000)
         }
       );
+
+      const upstreamHeadersMs = Date.now() - upstreamStarted;
 
       // Never forward the API key to a redirect destination.
       if (upstream.status >= 300 && upstream.status < 400) {
@@ -378,7 +382,10 @@ export default {
             upstream.headers.get('Content-Type') ||
             'application/octet-stream',
           'Cache-Control': 'no-store',
-          'X-Content-Type-Options': 'nosniff'
+          'X-Content-Type-Options': 'nosniff',
+          'Server-Timing':
+            'app;dur=' + (upstreamStarted - workerStarted) +
+            ', uspto;dur=' + upstreamHeadersMs,
         }
       });
     } catch (error) {
