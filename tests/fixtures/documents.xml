@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic offline fixture, not a USPTO case response. -->
+<DocumentList xmlns="urn:example:tsdr-test">
+  <Document>
+    <FileName>specimen-of-use.png</FileName><DocumentTypeCodeDescriptionText>Specimen showing use of the mark</DocumentTypeCodeDescriptionText>
+    <MailRoomDate>2026-10-21-04:00</MailRoomDate><DocumentTypeCode>SPE</DocumentTypeCode><TotalPageQuantity>2</TotalPageQuantity>
+    <PageMediaTypeList><PageMediaTypeName>image/jpeg</PageMediaTypeName><PageMediaTypeName>image/jpeg</PageMediaTypeName></PageMediaTypeList>
+    <UrlPathList><UrlPath>https://tmng-al.uspto.gov/resting2/api/casedoc/ts/cd/99638920/SPE20261021120000/1/webcontent</UrlPath><UrlPath>https://tmng-al.uspto.gov/resting2/api/casedoc/ts/cd/99638920/SPE20261021120000/2/webcontent</UrlPath></UrlPathList>
+  </Document>
+  <Document>
+    <FileName>office-action.pdf</FileName><DocumentTypeDescriptionText>Non-final Office action</DocumentTypeDescriptionText><MailRoomDate>2026-09-01-04:00</MailRoomDate><DocumentTypeCode>OOA</DocumentTypeCode><TotalPageQuantity>1</TotalPageQuantity>
+    <PageMediaTypeList><PageMediaTypeName>application/xml</PageMediaTypeName></PageMediaTypeList>
+    <UrlPathList><UrlPath>https://tmng-al.uspto.gov/resting2/api/casedoc/ts/cd/99638920/OOA20260901120000/1/webcontent</UrlPath></UrlPathList>
+  </Document>
+  <Document><DocumentId>ORIG20260801000000</DocumentId><FileName>TIFF test attachment.tiff</FileName><MailRoomDate>20260801</MailRoomDate><Url>https://tsdrsec.uspto.gov/ts/cd/casedoc/sn99638920/ORIG20260801000000/1/webcontent</Url></Document>
+  <Document><SerialNumber>99638920</SerialNumber><MailRoomDate>2026-02-01-05:00</MailRoomDate><TotalPageQuantity>1</TotalPageQuantity><PageMediaTypeList><PageMediaTypeName>image/jpeg</PageMediaTypeName></PageMediaTypeList><UrlPathList><UrlPath>https://tmng-al.uspto.gov/resting2/api/casedoc/cms/cases/99638920/DRW/00000000-0000-4000-8000-000000000001.jpg</UrlPath></UrlPathList><SourceSystem>cms</SourceSystem><OriginalFileName>Scenery.jpg</OriginalFileName><DocumentTypeCode>DRW</DocumentTypeCode><DocumentTypeCodeDescriptionText>Drawing</DocumentTypeCodeDescriptionText></Document>
+  <Document><Description>&lt;img src=x onerror=alert(1)&gt; is plain metadata text</Description><MailRoomDate>not-a-date</MailRoomDate><Url>https://example.invalid/file.png</Url></Document>
+</DocumentList>

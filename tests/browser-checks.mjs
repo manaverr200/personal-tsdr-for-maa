@@ -1,0 +1,87 @@
+import { parseDocuments } from '/lib/documents.mjs';
+const result = document.getElementById('checks'), frame = document.getElementById('app');
+const checks = [];
+function assert(condition, name) { if (!condition) throw new Error(name); checks.push('PASS: ' + name); result.textContent = checks.join('\n'); }
+const waitFor = async (predicate, label) => {
+  for (let i = 0; i < 200; i++) { if (predicate()) return; await new Promise(resolve => setTimeout(resolve, 50)); }
+  throw new Error('Timed out: ' + label);
+};
+const metrics = () => fetch('/__test__/metrics').then(response => response.json());
+try {
+  await fetch('/__test__/metrics', { method: 'POST' });
+  frame.src = '/'; await new Promise(resolve => frame.onload = resolve);
+  const doc = frame.contentDocument, app = frame.contentWindow, $ = id => doc.getElementById(id);
+  const downloads = [];
+  app.HTMLAnchorElement.prototype.click = function () { downloads.push({ filename: this.download, url: this.href }); };
+  await waitFor(() => !$('searchForm').classList.contains('hidden'), 'session');
+  $('serial').value = '99638920'; $('searchForm').requestSubmit();
+  await waitFor(() => $('statusViewer').querySelector('iframe') && !$('searchButton').disabled, 'status reader');
+  assert($('statusViewer').querySelector('iframe').src.startsWith('blob:'), 'status PDF uses a local in-app reader');
+  assert((await metrics()).length === 1 && (await metrics())[0].action === 'status-pdf', 'search fetches only one PDF, with no automatic XML or document requests');
+  assert($('moreActions').tagName === 'SECTION' && !$('moreActions').classList.contains('hidden') && !$('saveMetadata'), 'exports are always expanded and metadata export is removed');
+  $('loadDocs').click(); await waitFor(() => $('documentList').querySelectorAll('.document-row').length === 6, 'document rows');
+  assert($('documentList').querySelectorAll('img').length === 0, 'metadata descriptions are plain text, including HTML-looking text');
+  assert([...$('documentList').querySelectorAll('.row-description')].some(row => row.textContent === 'TIFF test attachment.tiff'), 'missing descriptions use the filename');
+  assert($('documentList').querySelectorAll('.document-download').length === 6 && !$('documentList').querySelector('button button'), 'every card has a separate download button without nested buttons');
+  assert([...$('documentList').querySelectorAll('.document-download')].every(button => button.querySelector('svg') && !button.textContent.trim()), 'download controls are icon-only circles in the original card layout');
+  assert(app.getComputedStyle($('documentList').querySelector('.row-description')).fontSize === '12px', 'document descriptions use smaller text');
+  const beforeFilters = (await metrics()).length;
+  $('documentQuery').value = 'Office action'; $('documentQuery').dispatchEvent(new Event('input'));
+  assert($('documentList').querySelectorAll('.document-row').length === 1, 'description filtering works locally');
+  $('clearFilters').click(); $('documentOrder').value = 'oldest'; $('documentOrder').dispatchEvent(new Event('input'));
+  assert($('documentList').querySelector('.row-description').textContent === 'Rate limit test document', 'date sorting works');
+  $('dateFrom').value = '2026-09-01'; $('dateFrom').dispatchEvent(new Event('input'));
+  assert($('documentList').querySelectorAll('.document-row').length === 2, 'date range filtering works');
+  $('clearFilters').click(); assert((await metrics()).length === beforeFilters, 'filters make no API requests');
+  app.__offlineAdvance += 31000;
+  $('documentList').querySelector('.document-row').click();
+  await waitFor(() => $('documentViewer').querySelector('img')?.naturalWidth > 0 && !$('searchButton').disabled, 'image preview');
+  assert($('documentViewer').textContent.includes('Specimen showing use of the mark'), 'image preview keeps the official description beside it');
+  const beforeReading = (await metrics()).length;
+  $('documentViewer').querySelector('[aria-label="Zoom in"]').click();
+  [...$('documentViewer').querySelectorAll('button')].find(button => button.textContent === 'Rotate').click();
+  assert($('documentViewer').querySelector('img').style.transform.includes('90deg'), 'image zoom and rotation work');
+  $('documentList').querySelector('.document-row').click(); await waitFor(() => !$('searchButton').disabled, 'cached preview');
+  assert((await metrics()).length === beforeReading, 'reading and reopening an image reuse its file without new requests');
+  app.__offlineAdvance += 31000;
+  [...$('documentList').querySelectorAll('.document-row')].find(row => row.textContent.includes('Non-final Office action')).click();
+  await waitFor(() => $('documentViewer').querySelector('iframe') && !$('searchButton').disabled, 'document PDF');
+  assert($('documentViewer').querySelector('iframe').src.startsWith('blob:'), 'individual document PDFs open in the app');
+  const officeCard = [...$('documentList').querySelectorAll('.document-card')].find(card => card.textContent.includes('Non-final Office action'));
+  const beforeDownload = (await metrics()).length;
+  officeCard.querySelector('.document-download').click(); await waitFor(() => downloads.length === 1 && !$('searchButton').disabled, 'cached download');
+  assert(downloads[0].filename === 'office-action.pdf' && downloads[0].url.startsWith('blob:') && (await metrics()).length === beforeDownload, 'individual download reuses a previewed PDF and preserves its filename');
+  app.__offlineAdvance += 31000;
+  $('documentList').querySelector('.document-download').click(); await waitFor(() => downloads.length === 2 && !$('searchButton').disabled, 'uncached download');
+  assert(downloads[1].filename === 'specimen-of-use.pdf' && (await metrics()).length === beforeDownload + 1, 'uncached individual download fetches exactly one complete PDF');
+  assert(officeCard.querySelector('.document-row').getAttribute('aria-pressed') === 'true', 'download buttons do not change the selected preview');
+  const cmsCard = [...$('documentList').querySelectorAll('.document-card')].find(card => card.textContent.includes('Scenery.jpg'));
+  cmsCard.querySelector('.document-row').click(); await waitFor(() => $('documentViewer').querySelector('img')?.naturalWidth > 0 && !$('searchButton').disabled, 'current CMS JPEG');
+  assert($('documentViewer').textContent.includes('Drawing'), 'current USPTO description fields and CMS JPEG previews work');
+  assert(!$('requestWait').classList.contains('hidden'), 'direct public JPG previews remain available while PDFs are cooling down');
+  const beforeJpegDownload = (await metrics()).length;
+  [...$('documentList').querySelectorAll('.document-card')].find(card => card.textContent.includes('Scenery.jpg')).querySelector('.document-download').click(); await waitFor(() => downloads.length === 3 && !$('searchButton').disabled, 'native JPEG download');
+  assert(downloads[2].filename === 'Scenery.jpg' && (await metrics()).length === beforeJpegDownload, 'CMS JPG downloads reuse the preview and keep the original filename');
+  app.__offlineAdvance += 31000;
+  [...$('documentList').querySelectorAll('.document-row')].find(row => row.textContent.includes('Rate limit test document')).click();
+  await waitFor(() => $('previewState').textContent.includes('rate limit') && !$('searchButton').disabled, '429');
+  const afterLimit = (await metrics()).length; await new Promise(resolve => setTimeout(resolve, 300));
+  assert((await metrics()).length === afterLimit, 'HTTP 429 does not cause an automatic retry');
+  // Cached reading remains available while new file requests are blocked.
+  $('documentList').querySelector('.document-row').click(); await waitFor(() => $('documentViewer').querySelector('img') && !$('searchButton').disabled, 'cached file during cooldown');
+  assert((await metrics()).length === afterLimit, 'cached images remain available during cooldown');
+  app.__offlineAdvance += 92000;
+  [...$('documentList').querySelectorAll('.document-row')].find(row => row.textContent.includes('TIFF test')).click();
+  await waitFor(() => $('documentViewer').textContent.includes('TIFF file') && !$('searchButton').disabled, 'TIFF fallback');
+  assert(!$('documentViewer').querySelector('iframe,img'), 'unsupported TIFF files have a clear fallback and are not rendered as HTML');
+  $('logout').click(); await waitFor(() => !$('loginForm').classList.contains('hidden'), 'lock');
+  assert(!$('statusViewer').querySelector('iframe') && !$('documentViewer').querySelector('img') && !$('docsRaw').textContent, 'locking clears both readers and original metadata');
+  const fixture = await fetch('/api/lookup?sn=99638920&action=documents').then(response => response.text());
+  const records = parseDocuments(fixture, '99638920');
+  assert(records[0].choices[0].page === '1' && records[0].choices[1].page === '2' && records[0].id === 'SPE20261021120000', 'current TICRS UrlPath metadata preserves IDs and page choices');
+  assert(records[1].choices.length === 1 && records[1].choices[0].format === 'pdf' && records[1].date.value === '2026-09-01', 'XML form pages use the PDF option and timezone-bearing dates parse correctly');
+  let rejected = false; try { parseDocuments('<DocumentList><Broken></DocumentList>', '99638920'); } catch { rejected = true; }
+  assert(rejected, 'malformed XML produces an explicit error');
+  result.textContent += '\n\nALL BROWSER CHECKS PASSED. All API traffic was served locally.';
+} catch (error) { result.textContent += '\n\nFAIL: ' + error.message; }
+await fetch('/__test__/results', { method: 'POST', body: result.textContent });

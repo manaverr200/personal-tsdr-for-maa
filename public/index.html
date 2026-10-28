@@ -1,198 +1,79 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="referrer" content="no-referrer">
-<title>Personal TSDR for Maa</title>
-<style>
-:root{color-scheme:light;--ink:#253b35;--muted:#697872;--green:#285c49;--line:#dce4dc;--paper:#fffef9}*{box-sizing:border-box}body{margin:0;background:#f3f5ee;color:var(--ink);font:16px/1.6 system-ui,sans-serif}main{max-width:1040px;margin:auto;padding:36px 24px}header{display:flex;justify-content:space-between;gap:20px;align-items:center;border-bottom:1px solid var(--line);padding-bottom:24px}.brand{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}h1{font-family:Georgia,serif;font-size:34px;font-weight:500;line-height:1.2;margin:8px 0}h2{font-size:21px;margin:0 0 16px}h3{font-size:16px}p{margin:8px 0 16px}a{color:var(--green)}.intro{margin:36px 0 24px;max-width:600px}.card{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:24px;margin:18px 0;box-shadow:0 6px 25px #203b3010}label{display:block;font-size:13px;font-weight:650;margin:12px 0 6px}input,select,button{font:inherit;border-radius:9px;padding:12px;border:1px solid #c7d4ca}input,select{width:100%;background:white;color:var(--ink)}input:focus,button:focus-visible,select:focus{outline:3px solid #b7d1bd;outline-offset:2px}button{cursor:pointer;background:var(--green);color:white;border-color:var(--green);font-weight:600}button:disabled{opacity:.55;cursor:wait}.secondary{background:transparent;color:var(--green);border-color:var(--line)}.search{display:flex;gap:12px;align-items:stretch}.search input{font-size:24px;letter-spacing:.12em;flex:1;min-width:0}.search button{min-width:150px}.small{font-size:13px;color:var(--muted)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.actions{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}.actions button{font-size:14px}summary{cursor:pointer;font-weight:600}details details{margin:8px 0 8px 14px;border-left:2px solid var(--line);padding-left:14px}details>div{margin-top:14px}.field{display:grid;grid-template-columns:minmax(140px,35%) 1fr;gap:16px;padding:8px 0;border-bottom:1px solid #e9eee7;overflow-wrap:anywhere}.field strong{font-size:13px;color:var(--muted);font-weight:500}.notice{padding:14px 16px;border-radius:10px;background:#eaf0e8;margin:16px 0;white-space:pre-wrap;overflow-wrap:anywhere}.notice.error{background:#fff0e7;color:#803b21}.hidden{display:none!important}pre{background:#eff2eb;padding:16px;overflow:auto;max-height:460px;font:12px/1.6 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere}.pill{display:inline-block;border:1px solid var(--line);border-radius:99px;padding:4px 10px;font-size:12px;color:var(--muted)}footer{font-size:12px;color:var(--muted);padding:20px 0}.raw{margin-top:20px}#resultHead{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}#resultHead h2{margin:0}.hint{border-left:3px solid #8caa8b;padding-left:14px}.loading:before{content:'↻ ';display:inline-block}.setupSteps li{margin:12px 0}#workerCode{max-height:330px}@media(max-width:640px){main{padding:20px 16px}h1{font-size:28px}.grid{grid-template-columns:1fr}.search{flex-direction:column}.card{padding:18px}header{align-items:start}header>a{font-size:12px}.field{grid-template-columns:1fr;gap:2px}}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Personal TSDR for Maa</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/app.mjs"></script>
 </head>
-<body><main>
-<header><div><div class="brand">A little help with trademarks</div><h1>Personal TSDR for Maa</h1></div><a href="https://www.uspto.gov/system-status" target="_blank" rel="noopener noreferrer">USPTO status ↗</a></header>
-<div class="intro"><h2>Your trademark file, in one place.</h2><p class="small">Enter an eight-digit application serial number to read the official status, explore every returned field, and download documents.</p></div>
-<form class="card hidden" id="loginForm"><h2>Welcome, Maa</h2><p class="small">Unlock with your app password. This browser will remember you for up to 30 days.</p><label for="password">App password</label><input id="password" name="password" type="password" autocomplete="current-password" required><div class="actions"><button id="loginButton">Unlock app</button></div><p id="loginMessage" role="status" class="small"></p></form>
-<div class="actions"><button type="button" id="logout" class="secondary hidden">Lock app</button></div>
-<form class="card hidden" id="searchForm"><label for="serial">Application serial number</label><div class="search"><input id="serial" name="serial" inputmode="numeric" pattern="[0-9]{8}" minlength="8" maxlength="8" required placeholder="e.g. 78787878" autocomplete="off" aria-describedby="serialHelp"><button id="searchButton">Search trademark</button></div><div id="serialHelp" class="small">Exactly 8 digits. Leading zeroes are preserved.</div></form>
-<div id="message" class="notice hidden" role="status" aria-live="polite"></div>
-<section id="results" class="hidden" aria-label="Trademark results">
-<div id="resultHead"><h2 id="resultTitle"></h2><a id="officialLink" target="_blank" rel="noopener noreferrer">Open official TSDR ↗</a></div><p id="retrieved" class="small"></p>
-<article class="card"><h2>Status &amp; case details</h2><div id="statusState"></div><div id="statusData"></div><div class="actions"><button type="button" data-download="status-pdf">Download status PDF</button><button type="button" id="saveStatus" class="secondary" disabled>Save returned status</button></div><details class="raw"><summary>Original API response</summary><pre id="statusRaw"></pre></details></article>
-<article class="card"><h2>Documents</h2><p class="small">Load document metadata when you need it, then expand the sections below to inspect the entries returned by USPTO. PDF and ZIP downloads are requested only when you click.</p><div id="docsState"></div><div class="actions"><button type="button" id="loadDocs" class="secondary" disabled>Load document metadata</button></div><div class="actions"><button type="button" data-download="documents-pdf">All documents · PDF</button><button type="button" data-download="documents-zip" class="secondary">All documents · ZIP</button><button type="button" id="saveDocs" class="secondary" disabled>Save metadata</button></div><div id="docsData"></div><details class="raw"><summary>Original document metadata</summary><pre id="docsRaw"></pre></details></article>
-</section>
-<footer>Made for Maa. Independent personal viewer · Data comes from USPTO · A successful homepage request does not establish that record or document retrieval is available.</footer>
+<body>
+<main>
+  <header class="site-header">
+    <div><div class="eyebrow">A little help with trademarks</div><h1>Personal TSDR for Maa</h1></div>
+    <nav aria-label="App actions">
+      <a href="https://www.uspto.gov/system-status" target="_blank" rel="noopener noreferrer">USPTO service status ↗</a>
+      <button type="button" id="logout" class="secondary hidden">Lock app</button>
+    </nav>
+  </header>
+  <p class="intro">Read the official status PDF and review documents without leaving your case.</p>
+  <form class="card login-card hidden" id="loginForm">
+    <h2>Welcome, Maa</h2>
+    <p class="small">Unlock with your app password. This browser will remember you for up to 30 days.</p>
+    <label for="password">App password</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required>
+    <div class="actions"><button id="loginButton">Unlock app</button></div>
+    <p id="loginMessage" role="status" class="small"></p>
+  </form>
+  <form class="card hidden" id="searchForm">
+    <label for="serial">Application serial number</label>
+    <div class="search">
+      <input id="serial" name="serial" inputmode="numeric" pattern="[0-9]{8}" minlength="8" maxlength="8" required placeholder="e.g. 99638920" autocomplete="off" aria-describedby="serialHelp">
+      <button id="searchButton" data-network>Open case</button>
+    </div>
+    <p id="serialHelp" class="small">Exactly eight digits. The official status PDF opens here.</p>
+  </form>
+  <p id="message" class="notice" role="status" aria-live="polite">Opening app…</p>
+  <p id="requestWait" class="small hidden" role="status" aria-live="polite"></p>
+  <section id="results" class="hidden" aria-label="Case workspace">
+    <div class="case-heading">
+      <div><div class="eyebrow">Current case</div><h2 id="caseTitle"></h2><p id="retrieved" class="small"></p></div>
+      <a id="officialLink" target="_blank" rel="noopener noreferrer">Open official TSDR ↗</a>
+    </div>
+    <article class="card" aria-labelledby="statusTitle">
+      <div class="section-heading"><h2 id="statusTitle">Official status PDF</h2><button type="button" id="refreshStatus" class="secondary" data-network>Refresh status PDF</button></div>
+      <p id="statusState" class="small" role="status"></p>
+      <div id="statusViewer" class="file-viewer status-viewer" role="region" aria-label="Official status PDF reader"></div>
+    </article>
+    <article class="card" aria-labelledby="documentsTitle">
+      <div class="section-heading"><div><h2 id="documentsTitle">Documents</h2><p class="small">Official descriptions and previews, one document at a time.</p></div><button type="button" id="loadDocs" data-network>Load document list</button></div>
+      <p id="docsState" class="small" role="status">Load the list when you need it. Images and documents open only when selected.</p>
+      <div id="documentTools" class="hidden">
+        <div class="filters">
+          <div><label for="documentQuery">Find a document</label><input id="documentQuery" type="search" placeholder="Description, code or document ID"></div>
+          <div><label for="documentFormat">Preview type</label><select id="documentFormat"><option value="">All types</option><option>Image / media</option><option>PDF</option><option>Original only</option></select></div>
+          <div><label for="documentOrder">Order</label><select id="documentOrder"><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select></div>
+        </div>
+        <details class="date-filters"><summary>Filter by document date</summary><div class="filters"><div><label for="dateFrom">From</label><input type="date" id="dateFrom"></div><div><label for="dateTo">To</label><input type="date" id="dateTo"></div><button type="button" id="clearFilters" class="secondary">Clear filters</button></div></details>
+        <p id="documentCount" class="small" role="status"></p>
+      </div>
+      <div class="document-workspace">
+        <div id="documentList" class="document-list"></div>
+        <aside class="preview-column" aria-label="Selected document">
+          <p id="previewState" class="notice" role="status">Select a document to read its description and open a preview here.</p>
+          <div id="previewChoices" class="actions"></div>
+          <div id="documentViewer" class="file-viewer" role="region" aria-label="Document preview"></div>
+        </aside>
+      </div>
+      <section id="moreActions" class="more-actions" aria-labelledby="exportsTitle"><h3 id="exportsTitle">Exports</h3>
+        <div class="actions"><button type="button" data-download="documents-pdf" data-network class="secondary">All documents · PDF</button><button type="button" data-download="documents-zip" data-network class="secondary">All documents · ZIP</button></div>
+        <details><summary>Original document metadata</summary><pre id="docsRaw"></pre></details>
+      </section>
+    </article>
+  </section>
+  <footer>Made for Maa · Independent personal viewer · Official records supplied by USPTO</footer>
+  <noscript><p class="notice error">Enable JavaScript to unlock the app and view case files.</p></noscript>
 </main>
-<script>
-'use strict';
-const $ = id => document.getElementById(id);
-const state = {serial:'',config:null,status:null,documents:null,busy:false,lastDownload:0,urls:new Set()};
-function message(text,error=false){$('message').textContent=text;$('message').className='notice'+(error?' error':'');}
-function notice(target,text,error=false){const n=document.createElement('div');n.className='notice'+(error?' error':'');n.textContent=text;$(target).replaceChildren(n);}
-function config(){return {};}
-async function request(action,sn,cfg){
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),95000);
-  const started=performance.now();
-  try{
-    const url='/api/lookup?'+new URLSearchParams({sn,action});
-    const response=await fetch(url,{
-      signal:controller.signal,cache:'no-store',credentials:'include',
-      redirect:'error',referrerPolicy:'no-referrer'
-    });
-    const headersAt=performance.now();
-    if(!response.ok){
-      const detail=(await response.text()).slice(0,500);
-      if(response.status===401)showLogin();
-      const hints={401:'Please unlock the app again.',403:'Access denied.',404:'No matching record was found.',429:'Please wait before trying again.',500:'The service reported an error.',502:'USPTO could not complete this request.',503:'The service needs setup or is temporarily unavailable.'};
-      const retry=response.headers.get('Retry-After');
-      throw new Error('HTTP '+response.status+'. '+(hints[response.status]||response.statusText)+(retry?' Retry-After: '+retry+'.':'')+(detail?'\n'+detail:''));
-    }
-    if(response.status===204)throw new Error('No content was returned for this request.');
-    const blob=await response.blob();
-    const finished=performance.now();
-    return {
-      blob,type:response.headers.get('Content-Type')||'',
-      timings:{
-        headersMs:Math.round(headersAt-started),
-        bodyMs:Math.round(finished-headersAt),
-        totalMs:Math.round(finished-started),
-        serverTiming:response.headers.get('Server-Timing')||''
-      }
-    };
-  }catch(e){
-    if(e.name==='AbortError')throw new Error('The request timed out. Please try again later.');
-    if(e instanceof TypeError)throw new Error('Could not reach the service. Check your internet connection and try again.');
-    throw e;
-  }finally{clearTimeout(timer);}
-}
-function label(name){return name.replace(/([a-z0-9])([A-Z])/g,'$1 $2').replace(/[-_]/g,' ');}
-function xmlTree(el,depth=0){
-  const kids=Array.from(el.children);const attrs=Array.from(el.attributes).filter(a=>!a.name.startsWith('xmlns'));
-  if(!kids.length&&!attrs.length){const row=document.createElement('div');row.className='field';const k=document.createElement('strong');k.textContent=label(el.localName);const v=document.createElement('span');v.textContent=el.textContent.trim()||'—';row.append(k,v);return row;}
-  const box=document.createElement('details');box.open=depth<2;const title=document.createElement('summary');title.textContent=label(el.localName)+(kids.length?' · '+kids.length:'');box.append(title);
-  const body=document.createElement('div');for(const a of attrs){const row=document.createElement('div');row.className='field';const k=document.createElement('strong');k.textContent='@'+a.name;const v=document.createElement('span');v.textContent=a.value;row.append(k,v);body.append(row);}
-  if(!kids.length){const p=document.createElement('p');p.textContent=el.textContent;body.append(p);}else for(const child of kids)body.append(xmlTree(child,depth+1));box.append(body);return box;
-}
-function render(text,target){
-  const doc=new DOMParser().parseFromString(text,'application/xml');
-  if(!doc.querySelector('parsererror')&&doc.documentElement){
-    if(doc.documentElement.localName.toLowerCase()==='html')throw new Error('The API returned an HTML page instead of trademark XML. See Original API response.');
-    if(doc.getElementsByTagNameNS('*','Fault').length)throw new Error('The API returned a service fault. See Original API response.');
-    $(target).replaceChildren(xmlTree(doc.documentElement));
-  }else{const pre=document.createElement('pre');try{pre.textContent=JSON.stringify(JSON.parse(text),null,2);}catch{pre.textContent=text;}$(target).replaceChildren(pre);}
-}
-function busy(value){
-  state.busy=value;
-  $('searchButton').disabled=value;
-  $('loadDocs').disabled=value||!state.serial||!state.config||Boolean(state.documents);
-  document.querySelectorAll('[data-download]').forEach(b=>b.disabled=value);
-}
-async function loadSection(action,sn,cfg){
-  const prefix=action==='status'?'status':'docs';
-  notice(prefix+'State','Loading '+(action==='status'?'case details':'document metadata')+'…');
-  try{
-    const result=await request(action,sn,cfg);
-    const renderStarted=performance.now();
-    const text=await result.blob.text();
-    state[action]={text,type:result.type};
-    $(prefix+'Raw').textContent=text;
-    render(text,prefix+'Data');
-    console.info('TSDR timing',{
-      action,bytes:result.blob.size,...result.timings,
-      decodeAndRenderMs:Math.round(performance.now()-renderStarted)
-    });
-    notice(prefix+'State','Received from USPTO · '+new Intl.NumberFormat().format(result.blob.size)+' bytes');
-    $(action==='status'?'saveStatus':'saveDocs').disabled=false;
-    return true;
-  }catch(e){notice(prefix+'State',e.message,true);return false;}
-}
-$('searchForm').addEventListener('submit',async e=>{
-  e.preventDefault();
-  if(state.busy)return;
-  const sn=$('serial').value.trim();
-  if(!/^\d{8}$/.test(sn)){message('Enter exactly eight digits.',true);return;}
-  let cfg;
-  try{cfg=config();}catch(e){message(e.message,true);return;}
-  state.serial=sn;state.config=cfg;state.status=null;state.documents=null;
-  ['statusData','docsData','statusRaw','docsRaw'].forEach(id=>$(id).replaceChildren());
-  $('saveStatus').disabled=true;$('saveDocs').disabled=true;
-  $('results').classList.remove('hidden');
-  $('resultTitle').textContent='Application '+sn;
-  $('officialLink').href='https://tsdr.uspto.gov/#caseNumber='+sn+'&caseSearchType=US_APPLICATION&caseType=DEFAULT&searchType=statusSearch';
-  $('retrieved').textContent='Requested '+new Date().toLocaleString();
-  notice('docsState','Click Load document metadata when you need the document list.');
-  busy(true);message('Looking up application '+sn+'…');
-  try{
-    const statusOK=await loadSection('status',sn,cfg);
-    if($('loginForm').classList.contains('hidden')){
-      message(statusOK?'Case details loaded. Document metadata is available below.':'Case details could not be loaded. See the message below.',!statusOK);
-    }
-  }finally{busy(false);}
-});
-$('loadDocs').onclick=async()=>{
-  if(state.busy||!state.serial||!state.config||state.documents)return;
-  busy(true);message('Loading document metadata…');
-  try{
-    const ok=await loadSection('documents',state.serial,state.config);
-    if($('loginForm').classList.contains('hidden')){
-      message(ok?'Document metadata loaded.':'Document metadata could not be loaded. See the message below.',!ok);
-    }
-  }finally{busy(false);}
-};
-function save(blob,filename){const url=URL.createObjectURL(blob);state.urls.add(url);const a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>{URL.revokeObjectURL(url);state.urls.delete(url);},60000);}
-for(const [button,action] of [['saveStatus','status'],['saveDocs','documents']])$(button).onclick=()=>{const r=state[action];if(r)save(new Blob([r.text],{type:r.type||'text/plain'}),state.serial+'-'+action+(r.text.trim().startsWith('<')?'.xml':'.txt'));};
-document.querySelectorAll('[data-download]').forEach(button=>button.onclick=async()=>{
-  if(state.busy||!state.serial||!state.config)return;
-  if(Date.now()-state.lastDownload<16000){message('Please leave at least 16 seconds between PDF/ZIP requests to respect download limits.',true);return;}
-  const action=button.dataset.download;state.lastDownload=Date.now();busy(true);message('Preparing your download. Large document bundles can take a while…');
-  try{
-    const result=await request(action,state.serial,state.config);const signature=new Uint8Array(await result.blob.slice(0,5).arrayBuffer());
-    const isZip=action.endsWith('zip');const valid=isZip?signature[0]===80&&signature[1]===75:String.fromCharCode(...signature)==='%PDF-';
-    if(!valid)throw new Error('USPTO returned an unexpected file instead of '+(isZip?'a ZIP':'a PDF')+'. '+(await result.blob.slice(0,400).text()));
-    save(result.blob,state.serial+'-'+action+'.'+(isZip?'zip':'pdf'));message('Download ready.');
-  }catch(e){message(e.message,true);}finally{busy(false);}
-});
-function showLogin(){
-  $('loginForm').classList.remove('hidden');$('searchForm').classList.add('hidden');$('results').classList.add('hidden');$('logout').classList.add('hidden');
-}
-function showApp(){
-  $('loginForm').classList.add('hidden');$('searchForm').classList.remove('hidden');$('logout').classList.remove('hidden');$('password').value='';$('message').classList.add('hidden');
-}
-$('loginForm').onsubmit=async e=>{
-  e.preventDefault();$('loginButton').disabled=true;$('loginMessage').textContent='Unlocking…';
-  try{const r=await fetch('/api/login',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('password').value})});
-    if(!r.ok)throw new Error(await r.text());showApp();$('serial').focus();
-  }catch(e){$('loginMessage').textContent=e.message||'Could not connect. Please try again.';}finally{$('loginButton').disabled=false;}
-};
-$('logout').onclick=async()=>{
-  if(state.busy)return;
-  try{const r=await fetch('/api/logout',{method:'POST',credentials:'same-origin'});if(!r.ok)throw new Error('Could not lock the app.');
-    state.config=null;state.status=null;state.documents=null;['statusData','docsData','statusRaw','docsRaw'].forEach(id=>$(id).replaceChildren());for(const u of state.urls)URL.revokeObjectURL(u);state.urls.clear();showLogin();$('loginMessage').textContent='App locked.';
-  }catch(e){message(e.message,true);}
-};
-(async()=>{
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),12000);
-  message('Opening app…');
-  try{
-    const r=await fetch('/api/session',{
-      credentials:'same-origin',cache:'no-store',signal:controller.signal
-    });
-    if(r.ok)showApp();
-    else{
-      showLogin();
-      if(r.status!==401)$('loginMessage').textContent=await r.text();
-    }
-  }catch(e){
-    showLogin();
-    $('loginMessage').textContent=e.name==='AbortError'
-      ?'The session check took too long. Check your connection, then try unlocking the app.'
-      :'Could not check your session. Check your connection, then try unlocking the app.';
-  }finally{
-    clearTimeout(timer);
-    $('message').classList.add('hidden');
-  }
-})();
-window.addEventListener('pagehide',()=>{state.config=null;for(const url of state.urls)URL.revokeObjectURL(url);state.urls.clear();});
-</script>
-</body></html>
+</body>
+</html>
